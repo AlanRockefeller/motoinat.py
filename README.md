@@ -2,7 +2,11 @@
 
 This script allows you to find iNaturalist observations that correspond to specific Mushroom Observer (MO) observation numbers. It supports retrieving data from a list of numbers or from a file and offers multiple output options, including URLs or observation IDs only.
 
-By Alan Rockefeller - January 2, 2025
+By Alan Rockefeller - May 15, 2025
+
+## Version 1.1
+- Supports https or http MO URL's
+- Supports the new mushroomobserver.org/obs/ URL's
 
 ## Features
 - Search for iNaturalist observations based on Mushroom Observer numbers.

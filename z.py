@@ -2,7 +2,7 @@
 
 # Convert Mushroom Observer observation numbers to iNaturalist observation numbers
 
-# Version 1.1 - Alan Rockefeller - May 15, 2025
+# Alan Rockefeller - January 2, 2025
 
 # Usage: motoinat.py 12345
 # Usage: motoinat.py -q --file input-numbers.txt
