@@ -92,7 +92,7 @@ python script.py 12345 67890 --debug
 ```
 
 ## License
-This program is licensed under the MIT License - see the LICENSE.md file for details.
+This program is licensed under the GNU GPL 3.0 License - see the LICENSE.md file for details.
 
 ## Contact
 For questions or suggestions, please contact Alan Rockefeller via my name at gmail, Instagram, Linkedin or Facebook messenger.
