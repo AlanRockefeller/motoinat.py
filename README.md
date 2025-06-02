@@ -15,7 +15,9 @@ By Alan Rockefeller - May 15, 2025
   - Full details of the matched observation (species, location, etc.).
   - iNaturalist observation URL only.
   - iNaturalist observation number only.
-- Debug mode for detailed request and response information.
+- Debug mode (`--debug`) for detailed logging of operations, including API request/response information.
+- Robust error handling for network issues, API response errors, and file I/O problems.
+- Input validation: Invalid (non-numeric) Mushroom Observer numbers are reported via stderr and skipped.
 
 ## How the Script Works
 The script performs the following steps to find a corresponding iNaturalist observation for a given Mushroom Observer number:
@@ -43,52 +45,55 @@ If these conditions are not met, the script will not detect a corresponding obse
 ## Requirements
 - Python 3.6 or higher
 - The following Python libraries:
-  - `requests`
-  - `argparse`
-  - `json`
+  - `requests` (external dependency)
+  - `argparse` (standard library)
+  - `json` (standard library)
+  - `logging` (standard library)
 
 ## Installation
-Clone or download this repository and ensure the required libraries are installed. Use the following command to install missing libraries:
+Clone or download this repository. The primary external dependency is `requests`.
+Install it using pip:
 ```bash
 pip install requests
 ```
+The other libraries (`argparse`, `json`, `logging`) are part of the Python standard library and do not need separate installation.
 
 ## Usage
-Run the script with the desired Mushroom Observer numbers or specify a file containing observation numbers.
+Run the script `motoinat.py` with the desired Mushroom Observer numbers or specify a file containing observation numbers.
 
 ### Command-Line Arguments
 | Argument         | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
 | `mo_numbers`     | One or more numeric Mushroom Observer numbers.                            |
-| `--file FILE`    | File containing numeric Mushroom Observer numbers, separated by spaces or newlines. |
-| `--debug`        | Enable debug output to view request and response details.                 |
+| `--file FILE`    | File containing numeric Mushroom Observer numbers, separated by spaces or newlines. Invalid/empty lines are skipped. |
+| `--debug`        | Enable verbose debug logging, including detailed API request/response information. |
 | `--url`          | Output only the iNaturalist observation URL.                              |
 | `-q`             | Output only the iNaturalist observation number.                          |
 
 ### Examples
 #### Search Using Observation Numbers
 ```bash
-python script.py 12345 
+python motoinat.py 12345 
 ```
 
 #### Search Using a File
 ```bash
-python script.py --file observations.txt
+python motoinat.py --file observations.txt
 ```
 
 #### Output URLs Only
 ```bash
-python script.py 12345 67890 --url
+python motoinat.py 12345 67890 --url
 ```
 
 #### Output Observation Numbers Only
 ```bash
-python script.py 12345 67890 -q
+python motoinat.py 12345 67890 -q
 ```
 
 #### Enable Debug Mode
 ```bash
-python script.py 12345 67890 --debug
+python motoinat.py 12345 67890 --debug
 ```
 
 ## License

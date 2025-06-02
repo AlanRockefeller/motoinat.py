@@ -11,10 +11,57 @@ import sys
 import requests
 import argparse
 import json
+import logging
 
-def find_inaturalist_observation(mo_number, debug=False, url_only=False, number_only=False):
-    base_url = "https://api.inaturalist.org/v1/observations"
+# Helper function to fetch data from iNaturalist API
+def _fetch_inat_data(mo_url_to_check, api_params, debug_mode):
+    base_url = "https://api.inaturalist.org/v1/observations" # Define base_url here or pass as arg if it can change
     
+    logging.debug(f"\n--- DEBUG: Request Details ---")
+    logging.debug(f"Base URL: {base_url}")
+    logging.debug(f"Mushroom Observer URL: {mo_url_to_check}")
+    logging.debug(f"Parameters: {json.dumps(api_params, indent=2)}")
+
+    try:
+        response = requests.get(base_url, params=api_params)
+        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+        
+        logging.debug(f"\n--- DEBUG: Response Details ---")
+        logging.debug(f"Status Code: {response.status_code}")
+        logging.debug(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
+        
+        data = response.json()
+        logging.debug(f"\n--- DEBUG: Response Data ---")
+        logging.debug(json.dumps(data, indent=2))
+        return data
+    except requests.exceptions.RequestException as e:
+        # Using logging.error for network/request errors if not handled by caller,
+        # or print if it's a direct feedback for a specific URL attempt.
+        # For this refactor, find_inaturalist_observation will print the user-facing error.
+        logging.warning(f"Network error while contacting iNaturalist API for URL {mo_url_to_check}: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        logging.warning(f"Error decoding JSON response from iNaturalist API for URL {mo_url_to_check}: {e}")
+        return None
+
+# Helper function to format and print observation details
+def _format_and_print_observation(mo_number, obs_item, matched_mo_url, url_only_flag, number_only_flag):
+    inat_url = f"https://www.inaturalist.org/observations/{obs_item['id']}"
+    if number_only_flag:
+        print(obs_item['id'])
+    elif url_only_flag:
+        print(inat_url)
+    else:
+        species_guess = obs_item.get('species_guess', 'N/A')
+        place_guess = obs_item.get('place_guess', 'N/A')
+        print(f"Mushroom Observer #{mo_number}:") # Removed leading \n
+        print(f"  iNaturalist Observation: {inat_url}")
+        print(f"  Species: {species_guess}")
+        print(f"  Location: {place_guess}")
+        print(f"  Matched URL: {matched_mo_url}")
+        print()
+
+def find_inaturalist_observation(mo_number, debug_mode=False, url_only=False, number_only=False):
     # All possible URL formats that might be stored in iNaturalist
     mo_urls = [
         f"http://mushroomobserver.org/observer/show_observation/{mo_number}",
@@ -30,54 +77,22 @@ def find_inaturalist_observation(mo_number, debug=False, url_only=False, number_
             "field:Mushroom Observer URL": mo_url,
             "verifiable": "any"
         }
+        
+        data = _fetch_inat_data(mo_url, params, debug_mode)
 
-        if debug:
-            print(f"\n--- DEBUG: Request Details ---")
-            print(f"Base URL: {base_url}")
-            print(f"Mushroom Observer URL: {mo_url}")
-            print(f"Parameters: {json.dumps(params, indent=2)}")
-
-        response = requests.get(base_url, params=params)
-
-        if debug:
-            print(f"\n--- DEBUG: Response Details ---")
-            print(f"Status Code: {response.status_code}")
-            print(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
-
-        if response.status_code == 200:
-            data = response.json()
-
-            if debug:
-                print(f"\n--- DEBUG: Response Data ---")
-                print(json.dumps(data, indent=2))
-
-            if data['total_results'] > 0:
-                obs = data['results'][0]
-                inat_url = f"https://www.inaturalist.org/observations/{obs['id']}"
-                if number_only:
-                    print(obs['id'])
-                elif url_only:
-                    print(inat_url)
-                else:
-                    print(f"\nMushroom Observer #{mo_number}:")
-                    print(f"  iNaturalist Observation: {inat_url}")
-                    print(f"  Species: {obs['species_guess']}")
-                    print(f"  Location: {obs['place_guess']}")
-                    print(f"  Matched URL: {mo_url}")
-                    print()
-                return  # Exit the function after finding a match
-        else:
-            if debug:
-                print(f"Error fetching data for Mushroom Observer #{mo_number} with URL {mo_url}")
+        if data and data['total_results'] > 0:
+            _format_and_print_observation(mo_number, data['results'][0], mo_url, url_only, number_only)
+            return  # Exit the function after finding and printing a match
 
     # If we get here, no match was found after trying all URL formats
     if url_only or number_only:
         print(f"Mushroom Observer #{mo_number} has no iNaturalist observation associated with it.")
     else:
+        # Standardized "not found" message
         print(f"No iNaturalist observation found for Mushroom Observer #{mo_number}")
-        print()
+        print() # Keep the blank line for spacing as per original behavior
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Find iNaturalist observations for Mushroom Observer numbers.")
     parser.add_argument("mo_numbers", nargs="*", help="One or more Mushroom Observer numbers")
     parser.add_argument("--file", type=str, help="File containing Mushroom Observer numbers")
@@ -86,23 +101,58 @@ if __name__ == "__main__":
     parser.add_argument("-q", action="store_true", help="Output only the iNaturalist observation number")
     args = parser.parse_args()
 
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     mo_numbers = args.mo_numbers
 
     if args.file:
         try:
             with open(args.file, "r") as file:
-                file_content = file.read()
-                mo_numbers.extend(file_content.split())
+                for line in file:
+                    stripped_line = line.strip()
+                    if stripped_line: # Only add non-empty lines
+                        mo_numbers.append(stripped_line)
         except FileNotFoundError:
-            print(f"Error: File {args.file} not found.")
+            print(f"Error reading file {args.file}: FileNotFoundError - File not found.")
+            sys.exit(1)
+        except PermissionError:
+            print(f"Error reading file {args.file}: PermissionError - Permission denied.")
+            sys.exit(1)
+        except IOError as e:
+            print(f"Error reading file {args.file}: IOError - {e}")
             sys.exit(1)
 
-    # Ensure all numbers are numeric
-    mo_numbers = [num for num in mo_numbers if num.isdigit()]
-    if not mo_numbers:
-        print("Error: No Mushroom Observer numbers provided.")
+    # Validate MO numbers and warn for non-digit entries.
+    # mo_numbers currently holds numbers from command line arguments
+    # and stripped, non-empty lines from the file (if provided).
+    valid_mo_numbers = []
+    if mo_numbers:
+        for num_str in mo_numbers:
+            # It's good practice to strip all inputs, including command line arguments,
+            # in case they have accidental spaces.
+            processed_num_str = num_str.strip()
+
+            if not processed_num_str: # Skip empty strings (e.g. if an arg was just spaces)
+                continue
+
+            if processed_num_str.isdigit():
+                valid_mo_numbers.append(processed_num_str)
+            else:
+                # Using print for user-facing warnings, not logging.warning here
+                print(f"Warning: Invalid MO number '{processed_num_str}' provided. Skipping.", file=sys.stderr)
+    
+    mo_numbers = valid_mo_numbers # Update mo_numbers to only contain valid, processed numbers
+    if not mo_numbers: # Check after validation
+        print("Error: No valid Mushroom Observer numbers provided.")
         print("Usage: python script.py [mo_numbers] [--file FILE] [--debug] [--url] [-q]")
         sys.exit(1)
 
     for mo_number in mo_numbers:
+        # Pass args.debug to control logging level within find_inaturalist_observation and its helpers
         find_inaturalist_observation(mo_number, args.debug, args.url, args.q)
+
+if __name__ == "__main__":
+    main()
